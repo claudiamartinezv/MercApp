@@ -1,0 +1,16 @@
+{% extends 'mercapp/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Eliminar usuario</h2>
+  <div class="alert alert-danger">
+    <p>Vas a eliminar al usuario <strong>{{ usuario.username }}</strong>.</p>
+    <p>Esta acción no se puede deshacer. Si quieres conservar datos, considera desactivar la cuenta en su lugar.</p>
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    <a class="btn btn-secondary" href="{% url 'lista_usuarios' %}">Cancelar</a>
+    <button type="submit" class="btn btn-danger">Eliminar usuario</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends "mercapp/base.html" %}
+
+{% load tz %}
+{% load format_eu %}
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Reporte de ventas</h1>
+
+    <form method="get" class="row g-3 mb-4">
+        <div class="col-md-3">
+            <label for="fecha_desde" class="form-label">Fecha desde</label>
+            <input type="date" id="fecha_desde" name="fecha_desde" class="form-control" value="{{ request.GET.fecha_desde }}">
+        </div>
+        <div class="col-md-3">
+            <label for="fecha_hasta" class="form-label">Fecha hasta</label>
+            <input type="date" id="fecha_hasta" name="fecha_hasta" class="form-control" value="{{ request.GET.fecha_hasta }}">
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+        </div>
+    </form>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Total vendido</h5>
+                    <p class="card-text h2">
+                        $ {{ total_vendido|format_euro }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h3>Ventas</h3>
+    <table class="table table-striped mb-4">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Fecha</th>
+                <th>Total</th>
+                <th>Método de pago</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in ventas %}
+            <tr>
+                <td>{{ v.id }}</td>
+                <td>{{ v.fecha|localtime|date:"d/m/Y H:i" }}</td>
+                <td>${{ v.total|format_euro }}</td>
+                <td>{{ v.metodo_pago }}</td>
+                <td>
+                    <a href="{% url 'detalle_venta' v.id %}" class="btn btn-sm btn-outline-primary">Ver</a>
+                    {% if not v.anulada %}
+                        <a href="{% url 'anular_venta' v.id %}" class="btn btn-sm btn-danger">Anular</a>
+                    {% else %}
+                        <span class="badge bg-danger">Anulada</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">No hay ventas en el rango seleccionado.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="row">
+        <div class="col-md-6">
+            <h3>Stock bajo mínimo</h3>
+            <table class="table table-sm table-warning">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Stock</th>
+                        <th>Mínimo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in stock_bajo %}
+                    <tr>
+                        <td>{{ p.nombre }}</td>
+                        <td>{{ p.stock }}</td>
+                        <td>{{ p.stock_minimo }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3">No hay productos bajo stock mínimo.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="col-md-6">
+            <h3>Top productos más vendidos</h3>
+            <table class="table table-sm table-striped">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad total</th>
+                        <th>Ventas totales</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in top_productos %}
+                    <tr>
+                        <td>{{ p.producto__nombre }}</td>
+                        <td>{{ p.cantidad_total }}</td>
+                        <td>${{ p.ventas_total|format_euro }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3">No hay datos suficientes para el ranking.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

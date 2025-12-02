@@ -1,0 +1,69 @@
+
+{% extends "mercapp/base.html" %}
+
+{% load tz %}
+{% load format_eu %}
+
+{% block title %}Detalle venta #{{ venta.id }} - MercApp{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <a href="{% url 'reporte_ventas' %}" class="btn btn-outline-secondary me-3" title="Volver" onclick="goBackOrReports(); return false;">
+        <!-- Sophisticated arrow SVG -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bi bi-arrow-left-circle">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 8 8 12 12 16"></polyline>
+            <line x1="16" y1="12" x2="8" y2="12"></line>
+        </svg>
+    </a>
+    <h1 class="mb-0">Venta #{{ venta.id }}</h1>
+</div>
+<script>
+function goBackOrReports(){
+    try{
+        if (document.referrer && document.referrer !== ''){ history.back(); return; }
+    }catch(e){}
+    window.location.href = '{% url "reporte_ventas" %}';
+}
+</script>
+
+<div class="card mb-4">
+    <div class="card-body">
+    <p><strong>Fecha:</strong> {{ venta.fecha|localtime|date:"d/m/Y H:i" }}</p>
+    <p><strong>Usuario:</strong> {% if venta.usuario %}{{ venta.usuario.username }}{% else %}<em>(usuario eliminado)</em>{% endif %}</p>
+        <p><strong>Método de pago:</strong> {{ venta.get_metodo_pago_display }}</p>
+    <p><strong>Total:</strong> ${{ venta.total|format_euro }}</p>
+        {% if venta.anulada %}
+            <div class="alert alert-danger mt-3">
+                <strong>ANULADA</strong>
+                <p>Motivo: {{ venta.motivo_anulacion }}</p>
+                <p>Anulada por: {% if venta.anulada_por %}{{ venta.anulada_por.username }}{% else %}N/A{% endif %} el {{ venta.fecha_anulacion|localtime|date:"d/m/Y H:i" }}</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<h4>Productos</h4>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Producto</th>
+            <th>Cantidad</th>
+            <th>Precio unitario</th>
+            <th>Subtotal</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for d in venta.detalles.all %}
+            <tr>
+                <td>{{ d.producto.nombre }}</td>
+                <td>{{ d.cantidad }}</td>
+                <td>${{ d.precio_unitario|format_euro }}</td>
+                <td>${{ d.subtotal|format_euro }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{% url 'registrar_venta' %}" class="btn btn-secondary mt-3">Registrar otra venta</a>
+{% endblock %}

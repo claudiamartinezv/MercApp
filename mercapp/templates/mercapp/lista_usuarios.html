@@ -1,0 +1,51 @@
+{% extends 'mercapp/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Usuarios</h2>
+  <div class="mb-3">
+    <a class="btn btn-primary" href="{% url 'crear_usuario' %}">Crear usuario</a>
+  </div>
+  <table class="table">
+    <thead>
+      <tr><th>Username</th><th>Email</th><th>Activo</th><th>Grupos</th><th>Acciones</th></tr>
+    </thead>
+    <tbody>
+      {% for u in usuarios %}
+      <tr>
+        <td>{{ u.username }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.is_active }}</td>
+        <td>{{ u.groups.all|join:', ' }}</td>
+        <td>
+          <form method="post" action="{% url 'toggle_usuario_activo' u.id %}" style="display:inline" class="toggle-active-form">{% csrf_token %}
+            <button class="btn btn-sm btn-warning">Toggle active</button>
+          </form>
+          <a class="btn btn-sm btn-secondary" href="{% url 'resetear_password' u.id %}">Reset password</a>
+          <a class="btn btn-sm btn-danger" href="{% url 'eliminar_usuario' u.id %}">Eliminar</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<script>
+  // add confirmation to toggle-active forms
+  document.addEventListener('DOMContentLoaded', function(){
+    const forms = document.querySelectorAll('form.toggle-active-form');
+    forms.forEach(function(f){
+      f.addEventListener('submit', function(ev){
+        // find the username from the same row
+        const row = f.closest('tr');
+        const username = row ? row.querySelector('td').innerText.trim() : 'este usuario';
+        const msg = `Estás a punto de activar/desactivar al usuario "${username}".\n\n` +
+                    'Si desactivas este usuario no podrá iniciar sesión ni acceder al sistema.\n' +
+                    '¿Deseas continuar?';
+        if (!confirm(msg)){
+          ev.preventDefault();
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

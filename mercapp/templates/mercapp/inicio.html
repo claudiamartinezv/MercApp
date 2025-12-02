@@ -1,0 +1,100 @@
+{% extends "mercapp/base.html" %}
+
+{% load tz %}
+{% load format_eu %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Inicio</h1>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Ventas de hoy</h5>
+                    <p class="card-text h2">
+                        $ {{ total_hoy|format_euro }}
+                    </p>
+                    <p class="text-muted">
+                        {{ ventas_hoy|length }} venta(s) registrada(s) hoy.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        {% if es_admin %}
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Productos con stock bajo</h5>
+                    <p class="card-text h2">
+                        {{ productos_bajo_stock|length }}
+                    </p>
+                    <p class="text-muted">
+                        Productos que requieren reposición.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <h3>Ventas de hoy</h3>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        {% if es_admin %}<th>Usuario</th>{% endif %}
+                        <th>Total</th>
+                        <th>Método de pago</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for venta in ventas_hoy %}
+                    <tr>
+                        <td>{{ venta.fecha|localtime|date:"d/m/Y H:i" }}</td>
+                        {% if es_admin %}<td>{% if venta.usuario %}{{ venta.usuario.username }}{% else %}<em>(usuario eliminado)</em>{% endif %}</td>{% endif %}
+                        <td>${{ venta.total|format_euro }}</td>
+                        <td>{{ venta.metodo_pago }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4">No hay ventas registradas hoy.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if es_admin %}
+        <div class="col-md-4">
+            <h3>Stock bajo mínimo</h3>
+            <table class="table table-sm table-warning">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Stock</th>
+                        <th>Mínimo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos_bajo_stock %}
+                    <tr>
+                        <td>{{ p.nombre }}</td>
+                        <td>{{ p.stock }}</td>
+                        <td>{{ p.stock_minimo }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3">No hay productos bajo stock mínimo.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

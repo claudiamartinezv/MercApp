@@ -1,0 +1,18 @@
+
+{% extends "mercapp/base.html" %}
+
+{% block title %}Eliminar producto - MercApp{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Eliminar producto</h1>
+
+<div class="alert alert-warning">
+    ¿Seguro que deseas eliminar el producto <strong>{{ producto.nombre }}</strong>?
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+    <a href="{% url 'lista_productos' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

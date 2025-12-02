@@ -1,0 +1,83 @@
+{% extends 'mercapp/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Crear usuario</h2>
+  <form method="post">
+    {% csrf_token %}
+    {% if form.errors %}
+    <div class="alert alert-danger">
+      <strong>Errores en el formulario:</strong>
+      <ul class="mb-0">
+        {% for field, errors in form.errors.items %}
+          <li>
+            <strong>{{ field|capfirst }}</strong>: 
+            {% for e in errors %}{{ e }}{% if not forloop.last %}; {% endif %}{% endfor %}
+          </li>
+        {% endfor %}
+        {% for e in form.non_field_errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <div class="mb-3">
+      {{ form.username.label_tag }}
+      {{ form.username }}
+      {% if form.username.errors %}
+        <div class="invalid-feedback d-block">{% for e in form.username.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>
+      {% endif %}
+    </div>
+    <div class="mb-3">
+      {{ form.email.label_tag }}
+      {{ form.email }}
+      {% if form.email.errors %}
+        <div class="invalid-feedback d-block">{% for e in form.email.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>
+      {% endif %}
+    </div>
+    <div class="mb-3">
+      {{ form.password1.label_tag }}
+      {{ form.password1 }}
+      {% if form.password1.errors %}
+        <div class="invalid-feedback d-block">{% for e in form.password1.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>
+      {% endif %}
+    </div>
+    <div class="mb-3">
+      {{ form.password2.label_tag }}
+      {{ form.password2 }}
+      {% if form.password2.errors %}
+        <div class="invalid-feedback d-block">{% for e in form.password2.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>
+      {% endif %}
+      <div id="pw-match-msg" class="text-danger small mt-1" style="display:none">Las contraseñas no coinciden.</div>
+    </div>
+    <div class="mb-3">
+      {{ form.rol.label_tag }}
+      {{ form.rol }}
+      {% if form.rol.errors %}
+        <div class="invalid-feedback d-block">{% for e in form.rol.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>
+      {% endif %}
+    </div>
+    <button class="btn btn-primary" type="submit" id="crear-btn">Crear</button>
+    <a class="btn btn-secondary" href="{% url 'lista_usuarios' %}">Cancelar</a>
+  </form>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const p1 = document.querySelector('input[name="password1"]');
+  const p2 = document.querySelector('input[name="password2"]');
+  const msg = document.getElementById('pw-match-msg');
+  const btn = document.getElementById('crear-btn');
+  if (!p1 || !p2) return;
+  function validate(){
+    const v1 = p1.value || '';
+    const v2 = p2.value || '';
+    if (v1 === '' && v2 === ''){ msg.style.display='none'; btn.removeAttribute('disabled'); return; }
+    if (v1 !== v2){ msg.style.display='block'; btn.setAttribute('disabled','disabled'); }
+    else { msg.style.display='none'; btn.removeAttribute('disabled'); }
+  }
+  p1.addEventListener('input', validate);
+  p2.addEventListener('input', validate);
+  validate();
+});
+</script>
+{% endblock %}

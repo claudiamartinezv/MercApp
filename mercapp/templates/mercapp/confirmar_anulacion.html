@@ -1,0 +1,31 @@
+{% extends "mercapp/base.html" %}
+
+{% load tz %}
+{% load format_eu %}
+
+{% block title %}Anular venta #{{ venta.id }} - MercApp{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Anular venta #{{ venta.id }}</h1>
+
+<div class="card mb-4">
+    <div class="card-body">
+    <p><strong>Fecha:</strong> {{ venta.fecha|localtime|date:"d/m/Y H:i" }}</p>
+    <p><strong>Usuario:</strong> {% if venta.usuario %}{{ venta.usuario.username }}{% else %}<em>(usuario eliminado)</em>{% endif %}</p>
+    <p><strong>Total:</strong> ${{ venta.total|format_euro }}</p>
+    </div>
+</div>
+
+<form method="post" class="card p-4">
+    {% csrf_token %}
+    <p>Indica el motivo por el cual se anula esta venta. Este motivo quedará registrado.</p>
+    {{ form.motivo.label_tag }}
+    {{ form.motivo }}
+
+    <div class="mt-3">
+        <button type="submit" class="btn btn-danger">Anular venta</button>
+        <a href="{% url 'detalle_venta' venta.id %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+{% endblock %}

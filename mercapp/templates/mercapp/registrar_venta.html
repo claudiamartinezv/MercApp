@@ -1,0 +1,431 @@
+
+{% extends "mercapp/base.html" %}
+
+{% block title %}Venta - MercApp{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Venta</h1>
+
+<form id="venta-form" method="post" class="card p-4">
+    {% csrf_token %}
+
+    <h5>Datos de la venta</h5>
+    <div class="row mb-3">
+        <div class="col-md-4">
+            {{ venta_form.metodo_pago.label_tag }}
+            {{ venta_form.metodo_pago }}
+        </div>
+    </div>
+
+    <hr>
+
+    <h5>Productos</h5>
+            {% if productos.count %}
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div></div>
+                <button type="button" id="add-row" class="btn btn-sm btn-success">+ Añadir producto</button>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">No hay productos registrados. Ve a <a href="{% url 'lista_productos' %}">Productos</a> y crea al menos uno antes de registrar ventas.</div>
+            {% endif %}
+
+        {{ formset.management_form }}
+
+        <table class="table" id="detalles-table">
+                <thead>
+        <tr>
+            <th>Código / ID</th>
+            <th>Nombre</th>
+            <th style="width:120px">Cantidad</th>
+            <th style="width:140px">Precio unitario</th>
+            <th style="width:120px">Subtotal</th>
+            <th style="width:80px"></th>
+        </tr>
+                </thead>
+                <tbody>
+                        {% for form in formset %}
+                                                                <tr class="detalle-row">
+                                                                                <td class="codigo-cell">
+                                                                                        <div class="input-group">
+                                                                                            <input type="text" class="form-control codigo-input" placeholder="ID / código">
+                                                                                            <button type="button" class="btn btn-outline-secondary search-btn">🔍</button>
+                                                                                        </div>
+                                                                                </td>
+                                                                                <td class="nombre-cell">
+                                                                                    <input type="text" class="form-control nombre-input" placeholder="Nombre" readonly>
+                                                                                </td>
+                                                                                <td style="display:none">{{ form.producto.as_hidden }}</td>
+                                                                                <td class="text-center align-middle">{{ form.cantidad }}</td>
+                                                                                <td class="text-center align-middle">{{ form.precio_unitario }}</td>
+                                                                                <td class="subtotal-cell text-end">0.00</td>
+                                                                                <td><button type="button" class="btn btn-sm btn-danger remove-row">Eliminar</button></td>
+                                                                </tr>
+                        {% endfor %}
+                </tbody>
+        </table>
+
+    <style>
+    /* Alineación y estilo para inputs en la tabla de detalles */
+    #detalles-table td, #detalles-table th { vertical-align: middle; }
+    /* Nombre input full width */
+    #detalles-table td.nombre-cell .form-control { background-color: #f8f9fa; width: 100%; }
+    /* Center text for numeric inputs */
+    #detalles-table td .form-control.text-center { text-align: center; }
+    /* Ensure codigo input and lupa button stay inline inside input-group */
+    #detalles-table .codigo-cell .input-group { display: flex; align-items: center; gap: .25rem; }
+    #detalles-table .codigo-cell .input-group .form-control { flex: 1 1 auto; min-width: 0; }
+    #detalles-table .codigo-cell .input-group .btn { flex: 0 0 auto; }
+    /* Highlight invalid rows (no producto or cantidad 0) */
+    #detalles-table tr.row-invalid td { background-color: #fff3cd; }
+    </style>
+
+        <div class="text-end mb-3">
+            <strong>Total: $<span id="venta-total">0.00</span></strong>
+        </div>
+
+    <div id="venta-form-help" class="text-danger mb-2" style="display:none">Debes agregar al menos un producto.</div>
+
+        <button type="submit" id="submit-venta" class="btn btn-primary"{% if not productos.count %} disabled{% endif %}>Guardar venta</button>
+
+        <!-- empty form template for JS cloning -->
+        <template id="empty-form-template">
+                    <tr class="detalle-row">
+                        <td class="codigo-cell">
+                            <div class="input-group">
+                                <input type="text" class="form-control codigo-input" placeholder="ID / código">
+                                <button type="button" class="btn btn-outline-secondary search-btn">🔍</button>
+                            </div>
+                        </td>
+                        <td class="nombre-cell">
+                            <input type="text" class="form-control nombre-input" placeholder="Nombre" readonly>
+                        </td>
+                        <td style="display:none">{{ formset.empty_form.producto.as_hidden }}</td>
+                        <td class="text-center align-middle">{{ formset.empty_form.cantidad }}</td>
+                        <td class="text-center align-middle">{{ formset.empty_form.precio_unitario }}</td>
+                        <td class="subtotal-cell text-end">0.00</td>
+                        <td><button type="button" class="btn btn-sm btn-danger remove-row">Eliminar</button></td>
+                    </tr>
+        </template>
+
+        <script>
+            // Map product id -> precio
+            const productPrices = {
+                {% for p in productos %}
+                    '{{ p.id }}': {{ p.precio|floatformat:2 }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            };
+
+            // Map codigo/ID -> product id
+            const productCodes = {
+                {% for p in productos %}
+                    {% if p.codigo %}'{{ p.codigo }}': '{{ p.id }}'{% if not forloop.last %},{% endif %}{% endif %}
+                {% endfor %}
+            };
+            // Map product id -> nombre (for text search)
+            const productNames = {
+                {% for p in productos %}
+                    '{{ p.id }}': "{{ p.nombre|escapejs }}"{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            };
+
+            function parseNumber(v){
+                if (v === null || v === undefined) return 0;
+                let s = String(v).trim();
+                if (!s) return 0;
+                // remove spaces
+                s = s.replace(/\s+/g, '');
+                // Heurística para distinguir separador de miles vs decimal:
+                const hasComma = s.indexOf(',') > -1;
+                const hasDot = s.indexOf('.') > -1;
+                if (hasComma && hasDot){
+                    // ambos presentes: el separador que aparece más a la derecha suele ser el decimal
+                    if (s.lastIndexOf(',') > s.lastIndexOf('.')){
+                        // coma es decimal: eliminar puntos de miles y convertir coma a punto
+                        s = s.replace(/\./g, '').replace(',', '.');
+                    } else {
+                        // punto es decimal: eliminar comas de miles (si las hubiera)
+                        s = s.replace(/,/g, '');
+                    }
+                } else if (hasComma){
+                    // sólo coma presente: si los dígitos después de la coma son 3 -> probable separador de miles
+                    const parts = s.split(',');
+                    if (parts.length === 2 && parts[1].length === 3){
+                        // ejemplo: 2,800 -> 2800
+                        s = parts[0] + parts[1];
+                    } else {
+                        // tratar coma como decimal
+                        s = s.replace(',', '.');
+                    }
+                } else if (hasDot){
+                    // sólo punto presente: si los dígitos después del punto son 3 -> probable separador de miles
+                    const parts = s.split('.');
+                    if (parts.length === 2 && parts[1].length === 3){
+                        // ejemplo: 2.800 -> 2800
+                        s = parts[0] + parts[1];
+                    } else if ((s.match(/\./g) || []).length > 1){
+                        // múltiples puntos => eliminarlos (p. ej. 1.234.567)
+                        s = s.replace(/\./g, '');
+                    }
+                    // si sólo un punto y no es separador de miles, lo dejamos como decimal
+                }
+                const n = parseFloat(s);
+                return isNaN(n) ? 0 : n;
+            }
+
+            function formatMoney(n){
+                // format as integer with dot thousands separator, no decimals (European style requested)
+                const num = Math.round(Number(n) || 0);
+                return String(num).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            }
+
+            function updateSubtotalForRow(row){
+                const productHidden = row.querySelector('[name$="-producto"]');
+                const qtyInput = row.querySelector('input[name$="-cantidad"]');
+                const priceInput = row.querySelector('input[name$="-precio_unitario"]');
+                const subtotalCell = row.querySelector('.subtotal-cell');
+                const nombreInput = row.querySelector('.nombre-input');
+
+                const productId = productHidden ? productHidden.value : null;
+                const price = priceInput && priceInput.value ? parseNumber(priceInput.value) : (productId ? parseNumber(productPrices[productId]||0) : 0);
+                const qty = qtyInput ? parseNumber(qtyInput.value) : 0;
+                const subtotal = price * qty;
+                if (subtotalCell) subtotalCell.textContent = formatMoney(subtotal);
+                // also ensure price input is filled when product selected
+                if (productId && priceInput && (!priceInput.value || priceInput.value=="0")){
+                    priceInput.value = formatMoney(productPrices[productId]||0);
+                }
+                // set nombre field if available
+                if (productId && nombreInput){
+                    nombreInput.value = productNames[productId] || '';
+                }
+                // also mark row validity
+                if (typeof validateRow === 'function') validateRow(row);
+            }
+
+            function updateTotal(){
+                const rows = document.querySelectorAll('#detalles-table tbody tr.detalle-row');
+                let total = 0;
+                rows.forEach(r=>{
+                    const cell = r.querySelector('.subtotal-cell');
+                    if (cell){ total += parseNumber(cell.textContent); }
+                });
+                document.getElementById('venta-total').textContent = formatMoney(total);
+                validateFormState();
+            }
+
+            function validateRow(row){
+                const productHidden = row.querySelector('input[name$="-producto"]');
+                const qtyInput = row.querySelector('input[name$="-cantidad"]');
+                const qv = qtyInput ? parseInt((qtyInput.value||'0').toString().replace(/[^0-9]/g,'')) : 0;
+                const valid = productHidden && productHidden.value && qv > 0;
+                if (valid){
+                    row.classList.remove('row-invalid');
+                } else {
+                    row.classList.add('row-invalid');
+                }
+                return valid;
+            }
+
+            function validateFormState(){
+                const rows = Array.from(document.querySelectorAll('#detalles-table tbody tr.detalle-row'));
+                let hasValid = false;
+                rows.forEach(function(r){ if (validateRow(r)) hasValid = true; });
+                const submitBtn = document.getElementById('submit-venta');
+                const help = document.getElementById('venta-form-help');
+                if (hasValid){
+                    if (submitBtn) submitBtn.removeAttribute('disabled');
+                    if (help) help.style.display = 'none';
+                } else {
+                    if (submitBtn) submitBtn.setAttribute('disabled','disabled');
+                    if (help) help.style.display = 'block';
+                }
+            }
+
+                        function bindRowEvents(row){
+                                const qtyInput = row.querySelector('input[name$="-cantidad"]');
+                                const priceInput = row.querySelector('input[name$="-precio_unitario"]');
+                                const removeBtn = row.querySelector('.remove-row');
+                                const codigoInput = row.querySelector('.codigo-input');
+                                const searchBtn = row.querySelector('.search-btn');
+                                const productHidden = row.querySelector('input[name$="-producto"]');
+
+                                                // ensure inputs have form-control + centered style to match codigo/nombre
+                                                if (qtyInput){ qtyInput.classList.add('form-control','text-center'); qtyInput.style.maxWidth = '120px'; }
+                                                if (priceInput){
+                                                    // render price as text so browser locale doesn't reformat decimals with comma
+                                                    try { priceInput.type = 'text'; } catch(e){}
+                                                    priceInput.classList.add('form-control','text-center');
+                                                    priceInput.style.maxWidth = '140px';
+                                                }
+
+                                                // bind codigo input (scanner enter)
+                                                if (codigoInput){
+                                                    codigoInput.addEventListener('keydown', function(e){
+                                                        if (e.key === 'Enter'){
+                                                            e.preventDefault();
+                                                            const code = codigoInput.value.trim();
+                                                            if (code && productCodes[code]){
+                                                                const pid = productCodes[code];
+                                                                                                if (productHidden) productHidden.value = pid;
+                                                                if (priceInput) priceInput.value = formatMoney(productPrices[pid]||0);
+                                                                if (qtyInput && (!qtyInput.value || qtyInput.value=='0')) qtyInput.value = 1;
+                                                                const nombreInput = row.querySelector('.nombre-input');
+                                                                if (nombreInput) nombreInput.value = productNames[pid] || '';
+                                                                updateSubtotalForRow(row); updateTotal();
+                                                            }
+                                                        }
+                                                    });
+                                                }
+
+                                // bind search button
+                                if (searchBtn){
+                                    searchBtn.addEventListener('click', function(){
+                                        const code = codigoInput ? codigoInput.value.trim() : null;
+                                                            if (code && productCodes[code]){
+                                                                const pid = productCodes[code];
+                                                                if (productHidden) productHidden.value = pid;
+                                                                if (priceInput) priceInput.value = formatMoney(productPrices[pid]||0);
+                                                                if (qtyInput && (!qtyInput.value || qtyInput.value=='0')) qtyInput.value = 1;
+                                                                const nombreInput = row.querySelector('.nombre-input');
+                                                                if (nombreInput) nombreInput.value = productNames[pid] || '';
+                                                                updateSubtotalForRow(row); updateTotal();
+                                                            } else {
+                                                                const q = prompt('Código no encontrado. Buscar por nombre (texto):');
+                                                                if (q){
+                                                                    // find by name using productNames map
+                                                                    const foundEntry = Object.entries(productNames).find(([id,name]) => name.toLowerCase().includes(q.toLowerCase()));
+                                                                    if (foundEntry){
+                                                                        const pid = foundEntry[0];
+                                                                        if (productHidden) productHidden.value = pid;
+                                                                        if (priceInput) priceInput.value = formatMoney(productPrices[pid]||0);
+                                                                        if (qtyInput && (!qtyInput.value || qtyInput.value=='0')) qtyInput.value = 1;
+                                                                        const nombreInput = row.querySelector('.nombre-input');
+                                                                        if (nombreInput) nombreInput.value = productNames[pid] || '';
+                                                                        updateSubtotalForRow(row); updateTotal();
+                                                                    } else {
+                                                                        alert('No se encontró ningún producto con ese texto.');
+                                                                    }
+                                                                }
+                                                            }
+                                    });
+                                }
+                if (qtyInput){
+                    qtyInput.addEventListener('input', function(){ updateSubtotalForRow(row); updateTotal(); validateRow(row); });
+                }
+                if (priceInput){
+                    priceInput.addEventListener('input', function(){ updateSubtotalForRow(row); updateTotal(); validateRow(row); });
+                }
+                if (removeBtn){
+                    removeBtn.addEventListener('click', function(){
+                        row.remove();
+                        // update TOTAL_FORMS
+                        const totalForms = document.querySelector('[name="form-TOTAL_FORMS"]');
+                        if (totalForms){ totalForms.value = parseInt(totalForms.value)-1; }
+                        updateTotal();
+                    });
+                }
+                // initial compute
+                updateSubtotalForRow(row);
+                validateRow(row);
+            }
+
+            document.addEventListener('DOMContentLoaded', function(){
+                // bind existing rows
+                try{
+                    document.querySelectorAll('#detalles-table tbody tr.detalle-row').forEach(bindRowEvents);
+
+                    const addRowBtn = document.getElementById('add-row');
+                    if (addRowBtn){
+                        addRowBtn.addEventListener('click', function(){
+                            const tmpl = document.getElementById('empty-form-template');
+                            const clone = tmpl.content.cloneNode(true);
+                            // replace __prefix__ in names/ids
+                            const totalForms = document.querySelector('[name="form-TOTAL_FORMS"]');
+                            let index = parseInt(totalForms.value || '0');
+                            const html = clone.firstElementChild.outerHTML.replace(/__prefix__/g, index);
+                            const wrapper = document.createElement('tbody');
+                            wrapper.innerHTML = html;
+                            const newRow = wrapper.querySelector('tr');
+                            document.querySelector('#detalles-table tbody').appendChild(newRow);
+                            // increment total forms
+                            totalForms.value = index + 1;
+                            bindRowEvents(newRow);
+                            updateTotal();
+                        });
+                    }
+                } catch(err){
+                    console.error('Error during setup of venta form JS:', err);
+                }
+
+                // initial total
+                updateTotal();
+                try{ validateFormState(); } catch(e){ console.error('validateFormState error', e); }
+
+                // normalize price inputs before submit so Django receives plain numeric values (e.g. 2300.00)
+                const theForm = document.getElementById('venta-form') || document.querySelector('form');
+                if (theForm){
+                    theForm.addEventListener('submit', function(e){
+                        try{
+                            // Client-side validation: at least one detalle with producto and cantidad>0
+                            const rows = Array.from(document.querySelectorAll('#detalles-table tbody tr.detalle-row'));
+                            let hasValid = false;
+                            rows.forEach(function(r){
+                                const prod = r.querySelector('input[name$="-producto"]');
+                                const qty = r.querySelector('input[name$="-cantidad"]');
+                                const qv = qty ? parseInt((qty.value||'0').replace(/[^0-9]/g,'')) : 0;
+                                if (prod && prod.value && qv > 0){ hasValid = true; }
+                            });
+                            if (!hasValid){
+                                alert('Debes agregar al menos un producto.');
+                                e.preventDefault();
+                                return;
+                            }
+                            // normalize price inputs robustly using parseNumber -> ensure we send numeric values
+                            // We'll create hidden inputs with the normalized values and disable the visible inputs
+                            // so the user still sees formatted prices (e.g. "2.300").
+                            // Remove any previous normalized hidden inputs we created earlier
+                            document.querySelectorAll('.normalized-price').forEach(function(el){ el.remove(); });
+                            const theFormEl = theForm;
+                            document.querySelectorAll('input[name$="-precio_unitario"]').forEach(function(inp){
+                                try{
+                                    const n = parseNumber(inp.value);
+                                    const normalized = Number(n).toFixed(2);
+                                    // create hidden input with same name
+                                    const hidden = document.createElement('input');
+                                    hidden.type = 'hidden';
+                                    hidden.name = inp.name;
+                                    hidden.value = normalized;
+                                    hidden.className = 'normalized-price';
+                                    theFormEl.appendChild(hidden);
+                                    // disable visible input so it won't be submitted
+                                    inp.disabled = true;
+                                }catch(e){
+                                    // create fallback hidden 0.00
+                                    const hidden = document.createElement('input');
+                                    hidden.type = 'hidden';
+                                    hidden.name = inp.name;
+                                    hidden.value = '0.00';
+                                    hidden.className = 'normalized-price';
+                                    theFormEl.appendChild(hidden);
+                                    inp.disabled = true;
+                                }
+                            });
+
+                            // ensure cantidad inputs are integers
+                            document.querySelectorAll('input[name$="-cantidad"]').forEach(function(inp){
+                                let v = inp.value || '0';
+                                v = v.replace(/[^0-9]/g, '');
+                                if (v === '') v = '0';
+                                inp.value = v;
+                            });
+                        } catch(err){
+                            console.error('Error preparing form for submit:', err);
+                            alert('Error al preparar la venta para guardar. Abre la consola del navegador y revisa errores.');
+                            e.preventDefault();
+                        }
+                    });
+                }
+            });
+        </script>
+</form>
+{% endblock %}

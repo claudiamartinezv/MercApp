@@ -1,0 +1,16 @@
+
+{% extends "mercapp/base.html" %}
+
+{% block title %}{{ titulo }} - MercApp{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{{ titulo }}</h1>
+
+<form method="post" class="card p-4">
+    {% csrf_token %}
+    {{ form.as_p }}
+
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{% url 'lista_productos' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}
