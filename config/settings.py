@@ -20,6 +20,10 @@ ALLOWED_HOSTS = os.getenv(
     "127.0.0.1,localhost"
 ).split(",")
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://mercapp-production-3a39.up.railway.app",
+]
+
 # ----------------------------
 # APPS
 # ----------------------------
