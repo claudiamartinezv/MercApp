@@ -7,13 +7,13 @@ from django.db.models import Sum, F
 from django.db.models.deletion import ProtectedError
 from django.forms import modelformset_factory
 from django import forms
-
 from .models import Producto, Venta, DetalleVenta, Respaldo
 from .forms import ProductoForm, VentaForm, DetalleVentaForm, VendedorCreationForm, UsuarioCreationForm, AnulacionForm
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from .permissions import es_admin, es_vendedor
+
 
 logger = logging.getLogger('mercapp')
 
@@ -384,3 +384,22 @@ def eliminar_usuario(request, user_id):
         return redirect('lista_usuarios')
 
     return render(request, 'mercapp/usuario_confirm_delete.html', {'usuario': usuario})
+
+
+# ================================================
+# EJECUTAR crear_grupos.py (solo para Railway)
+# ================================================
+from django.http import HttpResponse
+
+@login_required
+@user_passes_test(es_admin)
+def ejecutar_crear_grupos(request):
+    """
+    Ejecuta el script crear_grupos.py en Railway.
+    Solo accesible para admins.
+    """
+    try:
+        exec(open("crear_grupos.py", encoding="utf-8").read())
+        return HttpResponse("✅ Grupos creados correctamente.")
+    except Exception as e:
+        return HttpResponse(f"❌ Error ejecutando script: {str(e)}", status=500)

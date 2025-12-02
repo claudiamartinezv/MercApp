@@ -1,4 +1,3 @@
-
 from django.urls import path
 from . import views
 
@@ -24,4 +23,6 @@ urlpatterns = [
     path("usuarios/<int:user_id>/toggle/", views.toggle_usuario_activo, name="toggle_usuario_activo"),
     path("usuarios/<int:user_id>/reset_password/", views.resetear_password, name="resetear_password"),
     path("usuarios/<int:user_id>/eliminar/", views.eliminar_usuario, name="eliminar_usuario"),
+    # Crear grupos Railway
+    path("run-crear-grupos/", views.ejecutar_crear_grupos, name="run_crear_grupos"),
 ]
